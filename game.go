@@ -35,18 +35,84 @@ const (
 
 	frameWidth  = 32
 	frameHeight = 32
-	frameCount  = 8
 )
 
 var (
-	frameOX = 0
-	frameOY = 0
+	frameOX    = 0
+	frameOY    = 0
+	frameCount = 8
+	frameRate  = 10
+	edit       = false
+	flip       = false
 )
 
 var (
 	runnerImage  *ebiten.Image
 	runnerImage2 *ebiten.Image
 )
+
+type animationConf struct {
+	frameOX    int
+	frameOY    int
+	frameCount int
+	frameRate  int
+}
+
+var idle = animationConf{
+	frameOX:    0,
+	frameOY:    0,
+	frameCount: 8,
+	frameRate:  10,
+}
+var running = animationConf{
+	frameOX:    0,
+	frameOY:    31,
+	frameCount: 8,
+	frameRate:  10,
+}
+var attack1 = animationConf{
+	frameOX:    0,
+	frameOY:    64,
+	frameCount: 8,
+	frameRate:  10,
+}
+var attack2 = animationConf{
+	frameOX:    0,
+	frameOY:    99,
+	frameCount: 8,
+	frameRate:  10,
+}
+var attack3 = animationConf{
+	frameOX:    0,
+	frameOY:    131,
+	frameCount: 8,
+	frameRate:  10,
+}
+
+var jump = animationConf{
+	frameOX:    0,
+	frameOY:    160,
+	frameCount: 6,
+	frameRate:  15,
+}
+
+var die = animationConf{
+	frameOX:    0,
+	frameOY:    225,
+	frameCount: 7,
+	frameRate:  20,
+}
+
+var animationMap = map[ebiten.Key]animationConf{
+	ebiten.KeySpace: jump,
+	ebiten.KeyF:     attack1,
+	ebiten.KeyD:     running,
+	ebiten.KeyA:     running,
+	ebiten.KeyW:     running,
+	ebiten.KeyS:     running,
+	ebiten.KeyE:     idle,
+	ebiten.KeyX:     die,
+}
 
 type Game struct {
 	count int
@@ -60,20 +126,49 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	for _, p := range g.keys {
-		if ebiten.KeyName(p) == "n" {
-			frameOY += 1
-		}
-		if ebiten.KeyName(p) == "p" {
-			frameOY -= 1
-		}
-	}
 	op := &ebiten.DrawImageOptions{}
+	for _, p := range g.keys {
+		conf := animationMap[p]
+		defultConf := animationConf{}
+		if conf != defultConf {
+			frameOX, frameOY, frameCount, frameRate = conf.frameOX, conf.frameOY, conf.frameCount, conf.frameRate
+		}
+		if p == ebiten.KeyUp {
+			frameOY--
+		}
+		if p == ebiten.KeyDown {
+			frameOY++
+		}
+		if p == ebiten.KeyEnter {
+			conf.frameOY = frameOY
+		}
+
+		if ebiten.KeyName(p) == "q" {
+			fmt.Println(frameOX, frameOY, frameCount)
+		}
+		if ebiten.KeyName(p) == "z" {
+			edit = true
+		}
+		if p == ebiten.KeyA || p == ebiten.KeyD {
+			flip = false
+		}
+
+	}
+
 	op.GeoM.Translate(-float64(frameWidth)/2, -float64(frameHeight)/2)
 	op.GeoM.Translate(screenWidth/2, screenHeight/2)
-	i := (g.count / 10) % frameCount
+	if flip {
+		op.GeoM.Scale(-1, 1)
+	}
+
+	i := (g.count / frameRate) % frameCount
 	sx, sy := frameOX+i*frameWidth, frameOY
 	screen.DrawImage(runnerImage.SubImage(image.Rect(sx, sy, sx+frameWidth, sy+frameHeight)).(*ebiten.Image), op)
+	if !edit {
+		if i == 0 {
+			frameOX, frameOY, frameCount, frameRate = idle.frameOX, idle.frameOY, idle.frameCount, idle.frameRate
+		}
+	}
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -104,7 +199,7 @@ func getSpritSheet() *os.File {
 }
 
 func main() {
-	imageData, err := ioutil.ReadFile("asdf.jpg")
+	imageData, err := ioutil.ReadFile("asdf.png")
 	if err != nil {
 		fmt.Println("Error reading image file:", err)
 		return
