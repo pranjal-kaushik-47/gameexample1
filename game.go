@@ -26,6 +26,7 @@ import (
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
@@ -43,7 +44,12 @@ var (
 	frameCount = 8
 	frameRate  = 10
 	edit       = false
+	facing     = "right"
 	flip       = false
+	xdirection = 1
+	ydirection = 1
+	xmovement  = 0
+	ymovement  = 0
 )
 
 var (
@@ -66,7 +72,7 @@ var idle = animationConf{
 }
 var running = animationConf{
 	frameOX:    0,
-	frameOY:    31,
+	frameOY:    32,
 	frameCount: 8,
 	frameRate:  10,
 }
@@ -78,13 +84,13 @@ var attack1 = animationConf{
 }
 var attack2 = animationConf{
 	frameOX:    0,
-	frameOY:    99,
+	frameOY:    96,
 	frameCount: 8,
 	frameRate:  10,
 }
 var attack3 = animationConf{
 	frameOX:    0,
-	frameOY:    131,
+	frameOY:    128,
 	frameCount: 8,
 	frameRate:  10,
 }
@@ -98,7 +104,7 @@ var jump = animationConf{
 
 var die = animationConf{
 	frameOX:    0,
-	frameOY:    225,
+	frameOY:    192,
 	frameCount: 7,
 	frameRate:  20,
 }
@@ -128,42 +134,59 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	op := &ebiten.DrawImageOptions{}
 	for _, p := range g.keys {
-		conf := animationMap[p]
-		defultConf := animationConf{}
-		if conf != defultConf {
-			frameOX, frameOY, frameCount, frameRate = conf.frameOX, conf.frameOY, conf.frameCount, conf.frameRate
-		}
-		if p == ebiten.KeyUp {
-			frameOY--
-		}
-		if p == ebiten.KeyDown {
-			frameOY++
-		}
-		if p == ebiten.KeyEnter {
-			conf.frameOY = frameOY
-		}
+		if inpututil.KeyPressDuration(p) > 5 {
+			conf := animationMap[p]
+			defultConf := animationConf{}
+			if conf != defultConf {
+				frameOX, frameOY, frameCount, frameRate = conf.frameOX, conf.frameOY, conf.frameCount, conf.frameRate
+			}
 
-		if ebiten.KeyName(p) == "q" {
-			fmt.Println(frameOX, frameOY, frameCount)
+			switch p {
+			case ebiten.KeyD:
+				xdirection = 1
+				xmovement = inpututil.KeyPressDuration(p)
+				if facing == "right" {
+					flip = false
+				} else {
+					flip = true
+				}
+			case ebiten.KeyA:
+				xdirection = -1
+				xmovement = inpututil.KeyPressDuration(p)
+				if facing == "right" {
+					flip = true
+				} else {
+					flip = false
+				}
+			case ebiten.KeyW:
+				ydirection = -1
+				ymovement = inpututil.KeyPressDuration(p)
+			case ebiten.KeyS:
+				ydirection = 1
+				ymovement = inpututil.KeyPressDuration(p)
+			case ebiten.KeyUp:
+				frameOY--
+			case ebiten.KeyDown:
+				frameOY++
+			case ebiten.KeyEnter:
+				conf.frameOY = frameOY
+			case ebiten.KeyZ:
+				edit = true
+			}
 		}
-		if ebiten.KeyName(p) == "z" {
-			edit = true
-		}
-		if p == ebiten.KeyA || p == ebiten.KeyD {
-			flip = false
-		}
-
 	}
 
-	op.GeoM.Translate(-float64(frameWidth)/2, -float64(frameHeight)/2)
-	op.GeoM.Translate(screenWidth/2, screenHeight/2)
 	if flip {
 		op.GeoM.Scale(-1, 1)
+		op.GeoM.Translate((screenWidth/2+30)+float64(xmovement*xdirection), (screenHeight/2)+float64(ymovement*ydirection))
+	} else {
+		op.GeoM.Translate((screenWidth/2)+float64(xmovement*xdirection), (screenHeight/2)+float64(ymovement*ydirection))
 	}
 
 	i := (g.count / frameRate) % frameCount
 	sx, sy := frameOX+i*frameWidth, frameOY
 	screen.DrawImage(runnerImage.SubImage(image.Rect(sx, sy, sx+frameWidth, sy+frameHeight)).(*ebiten.Image), op)
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%v : %v : %v : %v : %v, %v", frameOX, frameOY, frameCount, frameRate, xdirection, ydirection), 10, 20)
 	if !edit {
 		if i == 0 {
 			frameOX, frameOY, frameCount, frameRate = idle.frameOX, idle.frameOY, idle.frameCount, idle.frameRate
